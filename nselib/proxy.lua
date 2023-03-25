@@ -70,13 +70,22 @@ end
 --@return check_status True or false. If pattern was used, depends on pattern check result. If not, depends on code check result.
 --@return result The result of the request
 --@return code_status True or false. If pattern was used, returns the result of code checking for the same result. If pattern was not used, is nil.
-local function test(socket, req, pattern)
+local function test(socket, req, pattern, line)
   local status, result = socket:send(req)
   if not status then
     socket:close()
     return false, result
   end
-  status, result = socket:receive()
+  status, result = false, false
+  if line then
+    stdnse.debug1("test receive_lines " .. line)
+    status, result = socket:receive_lines(line)
+  else
+    stdnse.debug1("test receive")
+    status, result = socket:receive()
+  end
+
+  stdnse.debug1("test result receive: " .. result)
   if not status then
     socket:close()
     return false, result
@@ -102,8 +111,8 @@ function test_get(host, port, proxyType, test_url, hostname, pattern)
     return false, socket
   end
   local req = "GET " .. test_url .. " HTTP/1.0\r\nHost: " .. hostname .. "\r\n\r\n"
-  stdnse.debug1("GET Request: " .. req)
-  return test(socket, req, pattern)
+  stdnse.debug1("GET Request: " .. req .. "\npattern:" .. pattern)
+  return test(socket, req, pattern, 15)
 end
 
 --- Builds the HEAD request and calls test
@@ -121,7 +130,7 @@ function test_head(host, port, proxyType, test_url, hostname, pattern)
   end
   local req = "HEAD " .. test_url .. " HTTP/1.0\r\nHost: " .. hostname .. "\r\n\r\n"
   stdnse.debug1("HEAD Request: " .. req)
-  return test(socket, req, pattern)
+  return test(socket, req, pattern, 15)
 end
 
 --- Builds the CONNECT request and calls test
@@ -137,7 +146,7 @@ function test_connect(host, port, proxyType, hostname)
   end
   local req = "CONNECT " .. hostname .. ":80 HTTP/1.0\r\n\r\n"
   stdnse.debug1("CONNECT Request: " .. req)
-  return test(socket, req, false)
+  return test(socket, req, false, false)
 end
 
 --- Checks if any parameter was used in old or new syntax
